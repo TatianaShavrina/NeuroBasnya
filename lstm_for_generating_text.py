@@ -54,38 +54,47 @@ def generate_text(model, length, vocab_size, ix_to_char):
 
 # method for preparing the training data
 def load_data(data_dir, seq_length):
-	data = open(data_dir, 'r').read()
-	chars = list(set(data))
-	VOCAB_SIZE = len(chars)
+    data = open(data_dir, 'r').read()
+    chars = list(set(data))
+    VOCAB_SIZE = len(chars)
 
-	print('Data length: {} characters'.format(len(data)))
-	print('Vocabulary size: {} characters'.format(VOCAB_SIZE))
-	ix_to_char = {ix:char for ix, char in enumerate(chars)}
-	char_to_ix = {char:ix for ix, char in enumerate(chars)}
-	a = len(data)//seq_length
-	X = np.zeros((a, int(seq_length), int(VOCAB_SIZE)), dtype=np.int)
-	y = np.zeros((a, int(seq_length), int(VOCAB_SIZE)), dtype=np.int)
-	for i in range(0, a):
-		X_sequence = data[i*seq_length:(i+1)*seq_length]
-		X_sequence_ix = [char_to_ix[value] for value in X_sequence]
-		input_sequence = np.zeros((seq_length, VOCAB_SIZE))
-		for j in range(seq_length):
-			input_sequence[j][X_sequence_ix[j]] = 1.
-			X[i] = input_sequence
+    print('Data length: {} characters'.format(len(data)))
+    print('Vocabulary size: {} characters'.format(VOCAB_SIZE))
+    ix_to_char = {ix:char for ix, char in enumerate(chars)}
+    char_to_ix = {char:ix for ix, char in enumerate(chars)}
+    a = len(data)//seq_length
+    step = 3
+    print(a, (len(data) - seq_length)//step)
+    
+    #X = np.zeros((a, int(seq_length), int(VOCAB_SIZE)), dtype=np.int)
+    #y = np.zeros((a, int(seq_length), int(VOCAB_SIZE)), dtype=np.int)
+    l = [i for i in range(0, len(data) - seq_length, step)]
+    X = np.zeros((len(l), seq_length, VOCAB_SIZE)) #(len(data) - seq_length)//step
+    y = np.zeros((len(l), seq_length, VOCAB_SIZE))
 
-		y_sequence = data[i*seq_length+1:(i+1)*seq_length+1]
-		y_sequence_ix = [char_to_ix[value] for value in y_sequence]
-		target_sequence = np.zeros((seq_length, VOCAB_SIZE))
-		for j in range(seq_length):
-			target_sequence[j][y_sequence_ix[j]] = 1.
-			y[i] = target_sequence
-	return X, y, VOCAB_SIZE, ix_to_char
+    for i in range(len(l)): 
+        X_sequence = data[l[i]:l[i]+seq_length] 
+        X_sequence_ix = [char_to_ix[value] for value in X_sequence]
+        input_sequence = np.zeros((seq_length, VOCAB_SIZE))
+        for j in range(seq_length):
+            #print(i)
+            input_sequence[j][X_sequence_ix[j]] = 1.
+            X[i] = input_sequence
+
+        y_sequence = data[l[i]+1:l[i]+seq_length+1]
+        y_sequence_ix = [char_to_ix[value] for value in y_sequence]
+        target_sequence = np.zeros((seq_length, VOCAB_SIZE))
+        for j in range(seq_length):
+            target_sequence[j][y_sequence_ix[j]] = 1.
+            y[i] = target_sequence
+    return X, y, VOCAB_SIZE, ix_to_char
+
 
 
 # In[41]:
 
 DATA_DIR ="/home/mi_air/Desktop/progr/bot/jew.txt"
-BATCH_SIZE = 32
+BATCH_SIZE = 128
 HIDDEN_DIM = 500
 SEQ_LENGTH = 80
 WEIGHTS = ""
@@ -99,7 +108,6 @@ X, y, VOCAB_SIZE, ix_to_char = load_data(DATA_DIR, SEQ_LENGTH)
 
 
 # In[45]:
-
 # Creating and compiling the Network
 model = Sequential()
 model.add(LSTM(HIDDEN_DIM, input_shape=(None, VOCAB_SIZE), return_sequences=True))
@@ -110,7 +118,7 @@ for i in range(LAYER_NUM - 1):
     model.compile(loss="categorical_crossentropy", optimizer="rmsprop")
 
 # Generate some sample before training to know how bad it is!
-generate_text(model, 15, VOCAB_SIZE, ix_to_char)
+generate_text(model, 150, VOCAB_SIZE, ix_to_char)
 
 if not WEIGHTS == '':
     model.load_weights(WEIGHTS)
@@ -127,7 +135,7 @@ if MODE == 'train' or WEIGHTS == '':
         print('\n\nEpoch: {}\n'.format(nb_epoch))
         model.fit(X, y, batch_size=BATCH_SIZE, verbose=1, nb_epoch=1)
         nb_epoch += 1
-        generate_text(model, 20, VOCAB_SIZE, ix_to_char)
+        generate_text(model, 100, VOCAB_SIZE, ix_to_char)
         if nb_epoch % 10 == 0:
             model.save_weights('/home/mi_air/Desktop/progr/bot/models/jew_checkpoint_layer_{}_hidden_{}_epoch_{}.hdf5'.format(LAYER_NUM, HIDDEN_DIM, nb_epoch))
             json_string = model.to_json()
@@ -148,4 +156,3 @@ else:
 
 # Generate some sample  to know how bad it is!
 generate_text(model, 15, VOCAB_SIZE, ix_to_char)
-
